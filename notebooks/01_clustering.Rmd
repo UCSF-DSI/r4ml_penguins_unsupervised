@@ -1,0 +1,143 @@
+---
+title: "Clustering Examples with Penguins"
+output: html_notebook
+---
+
+# Load Required Libraries
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(factoextra)
+set.seed(400)
+```
+
+# Read Data
+```{r}
+library(palmerpenguins)
+penguins
+```
+
+# Explore Data
+```{r}
+penguins %>%
+  ggpairs()
+
+ggsave(
+  filename = "pairs.png",
+  device = png,
+  path = "../plots",
+  width = 28,
+  height = 16,
+  units = "in"
+)
+```
+
+# K Means Clustering
+*This tutorial is heavily based on https://juliasilge.com/blog/kmeans-employment/
+
+## Preprocess (Bake) Data
+```{r}
+clustering_rec <- recipe(~., data = penguins) %>%
+  step_impute_mean(all_numeric()) %>%
+  step_normalize(all_numeric())
+```
+
+
+```{r}
+clustering_rec %>%
+  prep() %>%
+  tidy(2)
+```
+
+
+```{r}
+baked_penguins <- clustering_rec %>%
+  prep() %>%
+  bake(penguins) %>%
+  select(is.numeric, -year)
+
+baked_penguins
+```
+
+## Apply Clustering
+```{r}
+kclust <- baked_penguins %>% kmeans(centers = 6)
+kclust
+```
+
+## Check Number of Cluster
+```{r}
+k_params = 2:20
+tot.withinss <- c()
+
+for(k in k_params){
+  kclust_temp <- baked_penguins %>% kmeans(centers = k)
+  tot.withinss <- tot.withinss %>% 
+    append(kclust_temp$tot.withinss)
+}
+
+elbow_values <- tibble(
+  k_params,
+  tot.withinss
+)
+```
+
+```{r}
+elbow_values %>%
+  ggplot(aes(x=k_params, y=tot.withinss)) +
+  geom_line()
+```
+
+## Investigate Clusters
+```{r}
+augment(kclust, penguins)
+```
+
+# Hierarchical Clustering
+## Preprocess (Bake) Data
+```{r}
+clustering_rec <- recipe(~., data = penguins) %>%
+  step_impute_mean(all_numeric()) %>%
+  step_normalize(all_numeric())
+```
+
+```{r}
+baked_penguins <- clustering_rec %>%
+  prep() %>%
+  bake(penguins) %>%
+  select(is.numeric, -year)
+
+baked_penguins
+```
+
+## Apply Clustering
+```{r}
+hier_clust <- baked_penguins %>%
+  dist() %>%
+  hclust()
+```
+
+## Investigate Clusters
+```{r}
+hier_clust %>%
+  fviz_dend(k=6)
+```
+
+```{r}
+penguins %>%
+  mutate(.cluster = as.factor(hier_clust %>% cutree(k = 3))) %>%
+  ggpairs(columns = 1:8,
+          aes(colour = .cluster))
+
+ggsave(
+  filename = "hierarchical_pairs.png",
+  device = png,
+  path = "../plots",
+  width = 28,
+  height = 16,
+  units = "in"
+)
+```
+
+For additional tips on investigating results for Hierarchical Clustering, check out https://juliasilge.com/blog/health-care-indicators/

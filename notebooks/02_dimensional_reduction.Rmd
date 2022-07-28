@@ -1,0 +1,137 @@
+---
+title: "Dimensional Reduction Examples with Heart Disease"
+output: html_notebook
+---
+*This demo is heavily based on https://juliasilge.com/blog/cocktail-recipes-umap/
+
+# Load Required Libraries
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(embed)
+library(tidytext)
+library(GGally)
+set.seed(400)
+```
+
+```{r}
+source("../scripts/visualize_pca_features.R")
+source("../scripts/visualize_pca_components.R")
+```
+
+
+# Read Data
+```{r}
+library(palmerpenguins)
+penguins
+```
+
+# Explore Data
+```{r}
+penguins %>%
+  ggpairs()
+
+ggsave(
+  filename = "pairs.png",
+  device = png,
+  path = "../plots",
+  width = 28,
+  height = 16,
+  units = "in"
+)
+```
+
+```{r}
+penguins %>%
+  select(where(is.numeric)) %>%
+  ggpairs()
+
+ggsave(
+  filename = "numeric_pairs.png",
+  device = png,
+  path = "../plots",
+  width = 28,
+  height = 16,
+  units = "in"
+)
+```
+
+# PCA
+## Prep PCA
+```{r}
+pca_rec <- recipe(~., data = penguins) %>%
+  step_impute_mean(all_numeric_predictors()) %>%
+  step_normalize(all_numeric()) %>%
+  step_pca(all_numeric_predictors(), keep_original_cols = TRUE)
+```
+
+
+```{r}
+pca_prep <- pca_rec %>% 
+  prep()
+```
+ 
+## Inspect Results
+```{r}
+pca_prep %>%
+  tidy(3)
+```
+
+```{r}
+pca_prep %>%
+  tidy(3) %>%
+  visualize_pca_features(n_components = 2)
+```
+
+
+```{r}
+pca_prep %>%
+  tidy(3) %>%
+  visualize_pca_components()
+```
+
+```{r}
+pca_bake <- pca_prep %>% 
+  bake(penguins)
+
+pca_bake
+```
+
+```{r}
+pca_bake %>%
+  ggplot(mapping = aes(x = PC1, y = PC2, color = species)) +
+    geom_point()
+```
+
+
+# UMAP
+## Prep UMAP
+```{r}
+umap_rec <- recipe(~., data = penguins) %>%
+  step_impute_mean(all_numeric_predictors()) %>%
+  step_normalize(all_numeric()) %>%
+  step_umap(all_numeric_predictors(), keep_original_cols = TRUE)
+```
+
+```{r}
+umap_prep <- umap_rec %>% 
+  prep()
+  
+umap_prep
+```
+## Inspect Results
+```{r}
+umap_bake <- umap_prep %>%
+  bake(penguins)
+
+umap_bake
+```
+
+
+```{r}
+umap_bake %>%
+  ggplot(mapping = aes(x = UMAP1, y = UMAP2, color = species)) +
+    geom_point(size = 0.1)
+```
+
